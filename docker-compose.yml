@@ -1,0 +1,86 @@
+# docker compose up                       -> PostgreSQL + API (migrates + seeds) + Auditor Console
+# docker compose up -d postgres           -> only PostgreSQL (when you run the API from Visual Studio and the UI from VS Code)
+# docker compose --profile simulator up simulator   -> also run the producer simulator against the API
+# docker compose --profile tools up -d pgadmin      -> pgAdmin GUI on http://localhost:5050
+name: audittrail
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-audittrail}
+      POSTGRES_USER: ${POSTGRES_USER:-audit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-audit_dev_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: AuditTrail.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ConnectionStrings__AuditDb: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-audittrail};Username=${POSTGRES_USER:-audit};Password=${POSTGRES_PASSWORD:-audit_dev_password};Maximum Pool Size=50;Timeout=5;Command Timeout=30;Keepalive=30"
+      Database__SeedDemoData: ${SEED_DEMO_DATA:-true}
+      Demo__TenantDirectory: "true"
+      Cors__AllowedOrigins__0: ${CONSOLE_ORIGIN:-http://localhost:3000}
+      Cors__AllowedOrigins__1: http://localhost:5173
+      Search__CursorSigningKey: ${CURSOR_SIGNING_KEY:-change-me-local-demo-cursor-key}
+      Export__Directory: /data/exports
+      Export__DelayPerChunkMs: ${EXPORT_DELAY_PER_CHUNK_MS:-1000}
+      Export__ChunkSize: ${EXPORT_CHUNK_SIZE:-100}
+      Export__LeaseSeconds: ${EXPORT_LEASE_SECONDS:-30}
+      Retention__IntervalSeconds: ${RETENTION_INTERVAL_SECONDS:-300}
+    ports:
+      - "8080:8080"
+    volumes:
+      - exports:/data/exports
+    depends_on:
+      postgres:
+        condition: service_healthy
+    stop_grace_period: 30s
+
+  ui:
+    build:
+      context: ./audit-ui
+    environment:
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8080}
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+  simulator:
+    profiles: ["simulator"]
+    build:
+      context: .
+      dockerfile: AuditTrail.Simulator/Dockerfile
+    command: ["--base-url", "http://api:8080", "--tenants", "2", "--producers", "6", "--events", "20000",
+              "--batch-size", "100", "--concurrency", "32", "--duplicates", "5", "--late", "5", "--invalid", "2",
+              "--retry-timeouts", "--hot-tenant", "60"]
+    depends_on:
+      - api
+
+  pgadmin:
+    profiles: ["tools"]
+    image: dpage/pgadmin4:8
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
+  exports:

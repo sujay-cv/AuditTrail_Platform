@@ -1,0 +1,121 @@
+### AuditTrail API — try it from Visual Studio (click "Send request" above each block).
+### Start the API first (F5 in Visual Studio, or `docker compose up`). Demo keys/ids come from the seeder; they are not secrets.
+
+@api = http://localhost:8080
+@acme = 11111111-1111-1111-1111-111111111111
+@globex = 22222222-2222-2222-2222-222222222222
+
+### Health: liveness (process up) and readiness (database + workers OK)
+GET {{api}}/health/live
+
+###
+GET {{api}}/health/ready
+
+### ---------------------------------------------------------------- Producers (X-Api-Key)
+
+### Ingest ONE event -> 201 (stored), repeat -> 200 Duplicate, change the payload -> 409 Conflict
+POST {{api}}/api/ingest/events
+X-Api-Key: acme-payments-key
+Content-Type: application/json
+
+{
+  "eventId": "http-demo-0001",
+  "occurredAt": "2026-10-21T10:15:30Z",
+  "actor": { "type": "User", "id": "user:jdoe", "ip": "10.0.0.7" },
+  "action": "payment.approved",
+  "resource": { "type": "Invoice", "id": "INV-20931" },
+  "outcome": "Success",
+  "category": "Financial",
+  "metadata": { "amount": 1250.50, "currency": "USD", "cardNumber": "4111111111111111" }
+}
+
+### Mixed batch -> 207 with a result per event (accepted / rejected / duplicate)
+POST {{api}}/api/ingest/events/batch
+X-Api-Key: acme-payments-key
+Content-Type: application/json
+
+{
+  "events": [
+    { "eventId": "http-batch-1", "occurredAt": "2026-10-21T10:00:00Z", "actor": { "type": "Service", "id": "svc:payments" }, "action": "refund.issued", "resource": { "type": "Refund", "id": "R-1" }, "outcome": "Success", "category": "Financial" },
+    { "eventId": "http-batch-2", "occurredAt": "2026-10-21T10:00:00Z", "actor": { "type": "User", "id": "user:x" }, "action": "payment.approved", "resource": { "type": "Payment", "id": "P-2" }, "outcome": "Success", "category": "NotACategory" },
+    { "eventId": "http-batch-1", "occurredAt": "2026-10-21T10:00:00Z", "actor": { "type": "Service", "id": "svc:payments" }, "action": "refund.issued", "resource": { "type": "Refund", "id": "R-1" }, "outcome": "Success", "category": "Financial" }
+  ]
+}
+
+### Revoked key -> 401
+POST {{api}}/api/ingest/events
+X-Api-Key: acme-revoked-key
+Content-Type: application/json
+
+{}
+
+### ---------------------------------------------------------------- Auditors (X-Tenant-Id + X-Role)
+
+### Search (from/to required, max 90 days). Add &cursor=<nextCursor> for the next page, &newestFirst=true for newest first.
+GET {{api}}/api/events?from=2026-09-25T00:00:00Z&to=2026-10-23T00:00:00Z&category=Financial&limit=5
+X-Tenant-Id: {{acme}}
+X-Role: Auditor
+
+### Search without a time range -> 400 time_range_required
+GET {{api}}/api/events
+X-Tenant-Id: {{acme}}
+X-Role: Auditor
+
+### One event (replace the id with one from the search). Another tenant's id -> 404
+GET {{api}}/api/events/00000000-0000-0000-0000-000000000000
+X-Tenant-Id: {{acme}}
+X-Role: Auditor
+
+### Verify the hash chain (empty body = whole chain)
+POST {{api}}/api/integrity/verify
+X-Tenant-Id: {{acme}}
+X-Role: Auditor
+Content-Type: application/json
+
+{}
+
+### Create an export -> 202 + Location. Same Idempotency-Key again -> the same job.
+POST {{api}}/api/exports
+X-Tenant-Id: {{acme}}
+X-Role: Auditor
+Idempotency-Key: http-demo-export-1
+Content-Type: application/json
+
+{ "filter": { "from": "2026-09-25T00:00:00Z", "to": "2026-10-23T00:00:00Z", "category": "Financial" }, "format": "Ndjson" }
+
+### List exports (status, rows written, checksum)
+GET {{api}}/api/exports
+X-Tenant-Id: {{acme}}
+X-Role: Auditor
+
+### Tenant summary
+GET {{api}}/api/summary?from=2026-05-01T00:00:00Z&to=2026-10-23T00:00:00Z
+X-Tenant-Id: {{acme}}
+X-Role: Auditor
+
+### Retention policies (Auditor can read)
+GET {{api}}/api/retention/policies
+X-Tenant-Id: {{acme}}
+X-Role: Auditor
+
+### Auditor tries to change retention -> 403
+PUT {{api}}/api/retention/policies/Access
+X-Tenant-Id: {{acme}}
+X-Role: Auditor
+Content-Type: application/json
+
+{ "retentionDays": 30 }
+
+### ComplianceAdmin creates a legal hold
+POST {{api}}/api/legal-holds
+X-Tenant-Id: {{acme}}
+X-Role: ComplianceAdmin
+X-User-Id: alice
+Content-Type: application/json
+
+{ "scopeType": "Actor", "scopeValue": "user:asmith", "reason": "Investigation 2026-42" }
+
+### ComplianceAdmin runs retention now (verifies the chain first; never deletes held events)
+POST {{api}}/api/retention/run
+X-Tenant-Id: {{acme}}
+X-Role: ComplianceAdmin

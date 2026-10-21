@@ -1,0 +1,7 @@
+# Security headers for every response (included by each location in default.conf).
+# Content Security Policy: only our own scripts and styles; the browser may only call itself and the API.
+# No inline scripts, no eval, no framing. Event metadata is rendered as text; CSP is the second line of defence.
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ${API_BASE_URL}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header Referrer-Policy "no-referrer" always;
+add_header X-Frame-Options "DENY" always;

@@ -1,0 +1,28 @@
+# Rendered by the nginx image at start-up (envsubst fills ${API_BASE_URL}) into /etc/nginx/conf.d/.
+# nginx only inherits add_header into a location that has NO add_header of its own, so every location includes
+# the same security-headers snippet explicitly.
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    # The app shell: always revalidate, so a new deployment is picked up on the next page load.
+    location / {
+        include /etc/nginx/conf.d/security-headers.inc;
+        add_header Cache-Control "no-cache" always;
+        # Single-page app: unknown paths serve index.html so deep links (/events/123) work on reload.
+        try_files $uri /index.html;
+    }
+
+    # Runtime config (API URL) changes per environment: never cache.
+    location = /config.js {
+        include /etc/nginx/conf.d/security-headers.inc;
+        add_header Cache-Control "no-store" always;
+    }
+
+    # Build assets have a content hash in their name, so they can be cached forever.
+    location /assets/ {
+        include /etc/nginx/conf.d/security-headers.inc;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+}

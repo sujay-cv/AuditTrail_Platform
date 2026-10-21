@@ -1,0 +1,7 @@
+**/bin
+**/obj
+**/node_modules
+audit-ui
+.git
+.vs
+*.user

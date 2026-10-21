@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="AuditTrail.Api/AuditTrail.Api.csproj" />
+  <Project Path="AuditTrail.Simulator/AuditTrail.Simulator.csproj" />
+  <Project Path="AuditTrail.Tests/AuditTrail.Tests.csproj" />
+</Solution>

@@ -1,0 +1,15 @@
+## .NET
+bin/
+obj/
+.vs/
+*.user
+*.suo
+TestResults/
+
+## Local runtime data
+AuditTrail.Api/exports/
+.env
+
+## Node
+node_modules/
+audit-ui/dist/
