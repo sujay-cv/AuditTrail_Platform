@@ -47,7 +47,17 @@ The API applies migrations and seeds demo data on first start (two organizations
 
 > If Docker's `api`/`ui` containers are running, stop them first (`docker compose stop api ui`) so ports 8080/3000 are free.
 
-### Producer simulator (optional)
+### Why is nginx included?
+
+React's build produces static HTML, CSS and JavaScript files. In Docker, **nginx only serves those files on port 3000**,
+handles direct links such as `/events/123`, adds the required Content Security Policy, and injects the API URL at startup.
+It is not another backend, database, or application layer. No nginx installation or configuration is needed for Option B:
+Vite serves the UI during development, and Visual Studio runs the API separately.
+
+The PDF requires the Docker console to run on its own port with a configurable API URL (section 15). It does not require
+nginx specifically; the small static-server image is the serving choice used here.
+
+### Producer simulator (required by the assessment; optional to run)
 
 ```powershell
 dotnet run --project AuditTrail.Simulator -- --tenants 2 --producers 6 --events 20000 --batch-size 100 `
@@ -60,7 +70,7 @@ Afterwards, run the **Tamper check** in the console: the chain is still gap-free
 
 ### Demo script (5 minutes)
 
-1. **Activity log** → open the record by `mallory` (yesterday): the `<script>` text is shown harmlessly; card number and
+1. **Activity Log** → open the record by **Mallory Reed** (yesterday): the `<script>` text is shown harmlessly; card number and
    password show "Hidden for privacy".
 2. Switch **Organization** to Globex → search `evt-shared-0001`'s action (`payment`): the same eventId exists in both
    organizations, each sees only its own.
@@ -81,7 +91,7 @@ Afterwards, run the **Tamper check** in the console: the chain is still gap-free
 
 ```powershell
 dotnet test                          # 31 tests; needs Docker (Testcontainers starts its own PostgreSQL)
-cd audit-ui; npm test                # 21 UI tests (Vitest + Testing Library)
+cd audit-ui; npm test                # UI unit/component tests (Vitest + Testing Library)
 ```
 
 ### Look at the data with a GUI
@@ -325,7 +335,7 @@ Ready-made requests: [AuditTrail.Api.http](AuditTrail.Api/AuditTrail.Api.http).
 
 ## 5. The console (frontend)
 
-Screens: **Activity log** (search), **Activity detail**, **Dashboard**, **Exports**, **Tamper check**, **Retention & holds**.
+Screens: **Activity Log** (table filters), **Activity detail**, **Dashboard**, **Exports**, **Tamper check**, **Retention & holds**.
 The wording is deliberately non-technical ("Payment approved", "Hidden for privacy", "Kept for 7 years"); the exact
 technical values (ids, hashes, raw JSON) are one click away for auditors who need them.
 
@@ -335,8 +345,21 @@ technical values (ids, hashes, raw JSON) are one click away for auditors who nee
 - **Server state** ([queries.ts](audit-ui/src/api/queries.ts)): TanStack Query. Keys start with tenant + role, so switching
   organization never shows another tenant's cached data. Superseded requests are aborted. Only reads retry, and only on
   network/503 errors.
+- **No separate Search form**: activity loads immediately for the last 30 days, newest first. A compact period selector
+  sits in the table toolbar. Actor, action prefix, item type/id, result, category and source filters sit under their column
+  headings. Dropdowns apply immediately; text applies on Enter or when leaving the field (not on every keystroke).
+  Custom dates use **Apply dates**, with a clear error for reversed ranges or periods longer than 90 days.
 - **Filters live in the URL** (shareable, survive reload). Changing a filter starts a new query without a cursor.
-- **Large lists**: rows are virtualized; infinite scroll + "Load more"; capped at 10,000 rows (export for more).
+  Removable chips and **Clear all** show what is active. Filters remain usable during loading, errors and empty results.
+- **Meaningful demo names**: existing seeded aliases appear as fictional names such as **John Doe**, **Anna Smith**,
+  **Maya Khan** and **Lily Chen**; the existing `user:sim1` through `user:sim39` simulator fixtures also have fictional
+  names instead of numbered labels. Source names include **Payments Service**, **Human Resources** and
+  **Administration Console**. The small demo-name lists live in [format.ts](audit-ui/src/lib/format.ts), not a new
+  people database or identity service. Unknown identifiers are simply capitalized, not assigned an invented identity.
+  This changes presentation only: original IDs remain in details, filters, exports and stored audit evidence.
+  Click a displayed name to filter by its exact original ID.
+- **Large lists**: rows are virtualized; a single **Load more** button loads the next cursor page. No automatic page loading
+  or extra sort selector. The list is capped at 10,000 rows (export for more).
 - **Export button**: one Idempotency-Key per intent — reused for double-clicks and retries, new after success.
 - **Errors**: ProblemDetails → plain message, field errors, and the reference code (correlation id). A broken chain is shown
   as a big red *result*, not an error toast. Loading, empty, error and partial ("couldn't load more") states everywhere.
@@ -371,12 +394,30 @@ What I would change:
 
 ## 7. What I simplified / would do next
 
+### Scope checked against Assessment.pdf
+
+| Kept | Why it is not extra scope |
+|---|---|
+| All six screens and all table filters | Sections 8 and 5.2 explicitly require them |
+| Producer simulator | Sections 2 and 6 require it; only its Compose profile is optional to start |
+| Hash chain, checkpoints, append-only rules, tenant isolation | Sections 4, 7 and 10 require these correctness guarantees |
+| Export leases/resumption, retention locking, two workers | Sections 5.4, 5.5, 5.7 and 11 require concurrent/crash-safe behavior |
+| Typed API client, query caching/cancellation, virtualized table | Section 8 requires typed contracts, safe pagination and responsive large lists |
+| CORS, CSP, logs, metrics, health checks | Sections 8, 12 and 13 require them |
+
+Removed UI complexity: the standalone search card, Search button, More/Fewer Filters toggle, sort selector, and automatic
+infinite loading. The required filters now belong to the table, and paging has one explicit action. There is no broker,
+search engine, object store, generic repository layer, or separate worker deployment to operate.
+
+pgAdmin is an optional convenience for inspecting PostgreSQL, not an application dependency.
+
 - Auth is a header stand-in (by design of the brief). Next: OIDC for the console, client credentials for producers.
 - Checkpoints are not cryptographically **signed**; next: HMAC/asymmetric signature for offline verification.
 - No table partitioning, no row-level security, no rate limiting (listed above as next steps).
 - Only NDJSON exports (CSV was optional). No OpenTelemetry tracing exporter (metrics + structured logs only).
 - No end-to-end browser test for now (removed on request); the UI is covered by component tests and the API by
-  integration tests against real PostgreSQL.
+  integration tests against real PostgreSQL. **This is a deliberate gap against section 14 of the PDF**, which asks for
+  one Playwright or Cypress end-to-end test. Neither has been added back.
 
 ---
 

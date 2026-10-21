@@ -1,6 +1,6 @@
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useEvent } from '../api/queries'
-import { actorName, actorTypeLabel, categoryHelp, humanizeAction, relativeTime } from '../lib/format'
+import { actorName, actorTypeLabel, categoryHelp, displayName, humanizeAction, relativeTime } from '../lib/format'
 import { CopyButton } from '../components/CopyButton'
 import { ErrorPanel } from '../components/ErrorPanel'
 import { MetadataView } from '../components/MetadataView'
@@ -56,11 +56,12 @@ export function EventDetailPage() {
               <InfoCard title="When" icon="🕒">
                 <Field label="Happened"><Time iso={e.occurredAt} /></Field>
                 <Field label="Recorded"><Time iso={e.receivedAt} /></Field>
-                <p className="hint">“Happened” is the time reported by {e.producerName}. “Recorded” is when this platform saved it.</p>
+                <p className="hint">“Happened” is the time reported by {displayName(e.producerName)}. “Recorded” is when this platform saved it.</p>
               </InfoCard>
 
               <InfoCard title="Source" icon="🏢">
-                <Field label="Reported by">{e.producerName}</Field>
+                <Field label="Reported by">{displayName(e.producerName)}</Field>
+                <Field label="Original source name"><code>{e.producerName}</code></Field>
                 <Field label="Their reference"><code>{e.eventId}</code></Field>
               </InfoCard>
             </div>

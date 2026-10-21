@@ -16,7 +16,7 @@ export function CreateExportButton({ filters }: { filters: EventFilters }) {
   const intent = useRef<{ filters: string; key: string } | null>(null)
 
   function onClick() {
-    const signature = JSON.stringify({ ...filters, sort: undefined })   // sort order doesn't change what is exported
+    const signature = JSON.stringify(filters)
     if (intent.current?.filters !== signature) intent.current = { filters: signature, key: crypto.randomUUID() }
     const key = intent.current.key
     create.mutate(

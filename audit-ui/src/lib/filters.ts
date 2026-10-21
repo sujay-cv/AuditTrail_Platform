@@ -14,8 +14,6 @@ export interface EventFilters {
   outcome?: Outcome
   category?: Category
   producerId?: string
-  /** Display order. Newest first unless 'oldest' (only sent to search, never part of an export). */
-  sort?: 'oldest'
 }
 
 const TEXT_KEYS = ['actorId', 'actionPrefix', 'resourceType', 'resourceId', 'producerId'] as const
@@ -46,7 +44,6 @@ export function filtersFromParams(params: URLSearchParams): EventFilters | null 
   if (outcome && (OUTCOMES as string[]).includes(outcome)) filters.outcome = outcome as Outcome
   const category = params.get('category')
   if (category && (CATEGORIES as string[]).includes(category)) filters.category = category as Category
-  if (params.get('sort') === 'oldest') filters.sort = 'oldest'
   return filters
 }
 
@@ -55,7 +52,7 @@ export function filtersToParams(filters: EventFilters): URLSearchParams {
   const params = new URLSearchParams()
   params.set('from', filters.from)
   params.set('to', filters.to)
-  for (const key of [...TEXT_KEYS, 'outcome', 'category', 'sort'] as const) {
+  for (const key of [...TEXT_KEYS, 'outcome', 'category'] as const) {
     const v = filters[key]
     if (v) params.set(key, v)
   }

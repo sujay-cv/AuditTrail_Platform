@@ -61,13 +61,10 @@ export function useEventSearch(filters: EventFilters | null) {
     queryKey: [...scope, 'events', filters],
     enabled: filters !== null,
     initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) => {
-      const { sort, ...filter } = filters!
-      return call(api.GET('/api/events', {
-        params: { query: { ...filter, newestFirst: sort !== 'oldest', cursor: pageParam, limit: PAGE_SIZE } },
-        signal,
-      }))
-    },
+    queryFn: ({ pageParam, signal }) => call(api.GET('/api/events', {
+      params: { query: { ...filters!, newestFirst: true, cursor: pageParam, limit: PAGE_SIZE } },
+      signal,
+    })),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   })
 }

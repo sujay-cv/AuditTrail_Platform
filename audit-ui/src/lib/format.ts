@@ -54,10 +54,51 @@ export function humanizeAction(action: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
-/** "user:jdoe" -> "jdoe", "svc:payments-service" -> "payments-service" */
+const systemNames: Record<string, string> = {
+  'hr-service': 'Human Resources',
+  'admin-console': 'Administration Console',
+  'audit-platform': 'Audit Trail Platform',
+  'legacy-batch': 'Legacy Import Service',
+}
+
+/** Presentation only: keep the original identifier in API requests and audit details. */
+export function displayName(value: string): string {
+  if (Object.hasOwn(systemNames, value)) return systemNames[value]
+  return value.replace(/[._-]+/g, ' ').replace(/\b[a-z]/g, (letter) => letter.toUpperCase())
+}
+
+// Fictional display names for this project's existing demo fixtures, not an identity directory.
+const demoPeople: Record<string, string> = {
+  'user:jdoe': 'John Doe',
+  'user:asmith': 'Anna Smith',
+  'user:mkhan': 'Maya Khan',
+  'user:lchen': 'Lily Chen',
+  'user:rpatel': 'Riya Patel',
+  'user:okafor': 'Olivia Okafor',
+  'user:mallory': 'Mallory Reed',
+}
+
+const demoSimulatorPeople = [
+  'Alex Carter', 'Priya Sharma', 'Daniel Brooks', 'Sofia Garcia', 'James Wilson',
+  'Emma Taylor', 'Noah Williams', 'Ava Johnson', 'Liam Brown', 'Mia Davis',
+  'Ethan Miller', 'Isabella Moore', 'Lucas Martin', 'Amelia Thompson', 'Oliver White',
+  'Charlotte Harris', 'Benjamin Clark', 'Harper Lewis', 'Henry Walker', 'Evelyn Hall',
+  'Samuel Allen', 'Abigail Young', 'Jack King', 'Emily Wright', 'Leo Scott',
+  'Grace Green', 'Arjun Mehta', 'Anika Rao', 'Owen Baker', 'Chloe Adams',
+  'Isaac Nelson', 'Zoe Hill', 'Adam Mitchell', 'Hannah Roberts', 'Ryan Turner',
+  'Nora Phillips', 'David Campbell', 'Layla Parker', 'Aaron Evans',
+]
+
+/** Demo aliases get fictional names; other identifiers are formatted without guessing a person's identity. */
 export function actorName(actorId: string): string {
+  if (Object.hasOwn(demoPeople, actorId)) return demoPeople[actorId]
+  const simulator = /^user:sim([1-9]\d*)$/.exec(actorId)
+  if (simulator) {
+    const name = demoSimulatorPeople[Number(simulator[1]) - 1]
+    if (name) return name
+  }
   const i = actorId.indexOf(':')
-  return i > 0 && i < actorId.length - 1 ? actorId.slice(i + 1) : actorId
+  return displayName(i > 0 && i < actorId.length - 1 ? actorId.slice(i + 1) : actorId)
 }
 
 /** "cardNumber" -> "Card number", "changed_fields" -> "Changed fields" */

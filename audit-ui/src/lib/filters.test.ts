@@ -13,7 +13,6 @@ describe('filters <-> URL', () => {
       outcome: 'Denied',
       category: 'Financial',
       producerId: '0b3c8e7e-1111-2222-3333-444455556666',
-      sort: 'oldest',
     }
     const url = filtersToParams(filters).toString()
     expect(filtersFromParams(new URLSearchParams(url))).toEqual(filters)

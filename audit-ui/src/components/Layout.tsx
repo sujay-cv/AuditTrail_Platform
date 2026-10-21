@@ -6,11 +6,11 @@ import { useSession } from '../session/useSession'
 import type { Role } from '../session/session'
 
 const NAV = [
-  { to: '/events', icon: '☰', label: 'Activity log', hint: 'Search who did what' },
+  { to: '/events', icon: '☰', label: 'Activity Log', hint: 'See who did what' },
   { to: '/overview', icon: '◔', label: 'Dashboard', hint: 'Summary and trends' },
   { to: '/exports', icon: '⬇', label: 'Exports', hint: 'Download records' },
-  { to: '/integrity', icon: '🛡', label: 'Tamper check', hint: 'Prove nothing changed' },
-  { to: '/retention', icon: '🗄', label: 'Retention & holds', hint: 'How long records are kept' },
+  { to: '/integrity', icon: '🛡', label: 'Tamper Check', hint: 'Prove nothing changed' },
+  { to: '/retention', icon: '🗄', label: 'Retention & Holds', hint: 'How long records are kept' },
 ]
 
 /** Checks /health/ready every 5s so people see straight away when the service or its database is down. */
